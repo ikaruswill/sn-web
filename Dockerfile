@@ -1,4 +1,9 @@
-FROM ruby:2.7.1-alpine3.12
+
+# Build stage
+FROM ruby:2.7.1-alpine3.12 as build
+
+ENV RAILS_ROOT=/app
+ENV BUNDLE_APP_CONFIG="$RAILS_ROOT/.bundle"
 
 RUN apk add --update --no-cache \
     alpine-sdk \
@@ -6,24 +11,46 @@ RUN apk add --update --no-cache \
     python2 \
     git \
     nodejs-npm \
-    yarn \
-    tzdata
+    yarn
 
-WORKDIR /app/
+WORKDIR $RAILS_ROOT
 
-COPY package.json yarn.lock Gemfile Gemfile.lock /app/
+COPY package.json yarn.lock Gemfile Gemfile.lock $RAILS_ROOT/
 
-COPY vendor /app/vendor
+COPY vendor $RAILS_ROOT/vendor
 
 RUN yarn install --pure-lockfile
 
-RUN gem install bundler && bundle install
+RUN gem install bundler \
+    && bundle install --without development --path=vendor/bundle \
+    # Remove unneeded files (cached *.gem, *.o, *.c)
+    && find vendor/bundle/ruby/ -path "*/cache/*.gem" -delete \
+    && find vendor/bundle/ruby/ -path "*/gems/*.c" -delete \
+    && find vendor/bundle/ruby/ -path "*/gems/*.o" -delete
 
-COPY . /app/
+COPY . $RAILS_ROOT
 
 RUN yarn bundle
 
 RUN bundle exec rails assets:precompile
+
+# Remove folders not needed in resulting image
+RUN rm -rf node_modules tmp/cache
+
+# Final image
+FROM ruby:2.7.1-alpine3.12
+
+ENV RAILS_ENV=production
+ENV RAILS_ROOT=/app
+ENV BUNDLE_APP_CONFIG="$RAILS_ROOT/.bundle"
+
+WORKDIR $RAILS_ROOT
+
+RUN apk add --update --no-cache \
+    tzdata \
+    nodejs-current
+
+COPY --from=build $RAILS_ROOT $RAILS_ROOT
 
 EXPOSE 3000
 
