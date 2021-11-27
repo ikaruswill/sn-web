@@ -1,6 +1,6 @@
 
 # Build stage
-FROM ruby:2.7.1-alpine3.12 as build
+FROM ruby:2.7.4-alpine3.14 as build
 
 ENV RAILS_ROOT=/app
 ENV BUNDLE_APP_CONFIG="$RAILS_ROOT/.bundle"
@@ -8,9 +8,8 @@ ENV BUNDLE_APP_CONFIG="$RAILS_ROOT/.bundle"
 RUN apk add --update --no-cache \
     alpine-sdk \
     nodejs-current \
-    python2 \
+    python3 \
     git \
-    nodejs-npm \
     yarn
 
 WORKDIR $RAILS_ROOT
@@ -38,7 +37,7 @@ RUN bundle exec rails assets:precompile
 RUN rm -rf node_modules tmp/cache
 
 # Final image
-FROM ruby:2.7.1-alpine3.12
+FROM ruby:2.7.4-alpine3.14
 
 ENV RAILS_ENV=production
 ENV RAILS_ROOT=/app
